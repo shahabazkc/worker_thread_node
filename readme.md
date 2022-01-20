@@ -31,4 +31,4 @@ In the above example there is a function heavyTask,
 which is offloaded dynamically to a worker to be executed for a given set of arguments.
 
 This is how you can handle CPU Intensive Task by offloading that work to the worker thread. <br/>
-https://levelup.gitconnected.com/handling-nodejs-c-p-u-extensive-task-aa559452eca8
+
