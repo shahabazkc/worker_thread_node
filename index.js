@@ -1,42 +1,54 @@
-import { Worker } from 'worker_threads'
+import express from "express";
+import cluster from "cluster";
+import { cpus } from "os";
+import process from "process";
+import { Worker } from "worker_threads";
+
+const app = express()
+//const router = express.Router();
+
+const totalCpus = cpus().length;
+const port = 3000;
 
 
+if (cluster.isPrimary) {
+    console.log(`Number of CPUs is ${totalCpus}`);
+    console.log(`Master ${process.pid} is running`);
 
-for (let i = 0; i < 500; i++) {
-  if (i == 0) {
-    //Create new worker
-    const worker = new Worker("./heavy-tasks/index.js");
+    // Fork workers.
+    for (let i = 0; i < totalCpus; i++) {
+        cluster.fork();
+    };
 
-    //Listen for a message from worker
-    worker.on("message", result => {
-      console.log(`result of ${i} is: ${result.fib}`);
-      worker.terminate()
-    });
-    worker.on("error", error => {
-      console.log(error);
-    });
 
-    worker.postMessage({ worker: i, num: 100000 });
-  }
-  else if (i < 450) {
-    //Create new worker
-    const worker = new Worker("./heavy-tasks/index.js");
-    console.log("thread Id", worker.threadId)
-    //Listen for a message from worker
-    worker.on("message", result => {
-      console.log(`result of ${i} is: ${result.fib}`);
-      worker.terminate()
-    });
-    worker.on("error", error => {
-      console.log(error);
+    cluster.on('exit', (worker, code, signal) => {
+        console.log(`worker ${worker.process.pid} died`);
+        console.log("Let's fork another worker!");
+        cluster.fork();
     });
 
-    worker.postMessage({ worker: i, num: 10 });
-  }
-  else {
-    continue
-  }
+} else {
+    startServer();
+};
 
-}
+function startServer() {
+    console.log(`Worker ${process.pid} started`);
+    app.get("/", (req, res) => {
+        console.log(`On process ${process.pid}`);
+        res.send("Hello World!");
+    });
+
+    app.get("/api/:n", function (req, res) {
+        console.log(`On process ${process.pid}`);
+        const worker = new Worker('./worker.js', { workerData: { n: req.params.n } });
+        worker.on('message', (data) => {
+            res.status(200).send(data);
+        })
+    });
 
 
+
+    app.listen(port, () => {
+        console.log(`App listening on port ${port}`);
+    });
+};
